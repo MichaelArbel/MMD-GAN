@@ -316,7 +316,7 @@ class MMD_GAN(object):
 
         with tf.variable_scope('loss'):
             self.g_loss = mmd.mmd2(kerGI)
-            self.d_loss = -self.g_loss
+            self.d_loss = -1.*self.g_loss
             self.optim_name = 'kernel_loss'
 
         self.add_gradient_penalty(kernel, G, images)
@@ -373,12 +373,6 @@ class MMD_GAN(object):
             x_hat_data = self.images
             x_hat = self.d_images
 
-        
-
-
-        
-
-
         norm2_jac = squared_norm_jacobian(x_hat, x_hat_data)
 
         norm2_jac = tf.reduce_mean(norm2_jac)
@@ -388,11 +382,12 @@ class MMD_GAN(object):
             scale = 1./(self.sc*norm2_jac+1.)
         elif self.config.scaling_variant == 'value_and_grad':
             scale = 1./(self.sc*(norm2_jac + norm_discriminator) + 1.)
+        elif self.config.scaling_variant == 'constant':
+            scale = 1.
 
         unscaled_g_loss = self.g_loss
         with tf.variable_scope('loss'):
             if self.config.with_scaling:
-
                 print('[*] Adding scaling variant: %s', self.config.scaling_variant)
                 self.apply_scaling(scale)
                 tf.summary.scalar(self.optim_name + '_non_scaled_G', unscaled_g_loss)

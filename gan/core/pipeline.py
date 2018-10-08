@@ -15,9 +15,17 @@ from utils import misc
 from PIL import Image
 from glob import glob
 import matplotlib.pyplot as plt
+import numpy as np
+
 
 from tensorflow.python.ops.data_flow_ops import RecordInput, StagingArea
 
+
+random = True
+if random:
+    Record_seed = np.random.randint(1,500)
+else:
+    Record_seed = 301
 
 class Pipeline(object):
     def __init__(self, output_size, c_dim, batch_size, data_dir, format='NCHW', with_labels=False, **kwargs):
@@ -96,7 +104,7 @@ class DataFlow(Pipeline):
             file_pattern = os.path.join(self.data_dir, self.regex)
             record_input = RecordInput(
                 file_pattern=file_pattern,
-                seed=301,
+                seed=Record_seed,
                 parallelism=32,
                 buffer_size=4000,
                 batch_size=self.batch_size,

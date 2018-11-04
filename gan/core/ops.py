@@ -1,6 +1,9 @@
+import tensorflow as tf
 from tensorflow.python.framework import ops
+
 from utils.misc import variable_summaries
-from .mmd import _eps, tf
+
+_eps = 1.0e-5
 
 
 class batch_norm(object):

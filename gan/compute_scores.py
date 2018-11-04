@@ -9,6 +9,9 @@ import tensorflow as tf
 from tqdm import tqdm
 
 
+# TODO: this should probably be replaced with tf.contrib.gan.eval
+
+
 # from tqdm docs: https://pypi.python.org/pypi/tqdm#hooks-and-callbacks
 class TqdmUpTo(tqdm):
     def update_to(self, b=1, bsize=1, tsize=None):
@@ -17,54 +20,20 @@ class TqdmUpTo(tqdm):
         self.update(b * bsize - self.n)  # also sets self.n = b * bsize
 
 
+from tensorflow.contrib.gan import eval as tfgan_eval
 class Inception(object):
     def __init__(self,sess):
-        MODEL_DIR = '/tmp/imagenet'
-        DATA_URL = ('http://download.tensorflow.org/models/image/imagenet/'
-                    'inception-2015-12-05.tgz')
         self.softmax_dim = 1008
         self.coder_dim = 2048
 
-        if not os.path.exists(MODEL_DIR):
-            os.makedirs(MODEL_DIR)
-        filename = DATA_URL.split('/')[-1]
-        filepath = os.path.join(MODEL_DIR, filename)
-
-        if not os.path.exists(filepath):
-            with TqdmUpTo(unit='B', unit_scale=True, miniters=1,
-                          desc=filename) as t:
-                filepath, _ = urllib.request.urlretrieve(
-                    DATA_URL, filepath, reporthook=t.update_to)
-
-        tarfile.open(filepath, 'r:gz').extractall(MODEL_DIR)
-        with tf.gfile.FastGFile(os.path.join(
-                MODEL_DIR, 'classify_image_graph_def.pb'), 'rb') as f:
-            graph_def = tf.GraphDef()
-            graph_def.ParseFromString(f.read())
-            tf.import_graph_def(graph_def, name='')
-
-        # Works with an arbitrary minibatch size.
-        #self.sess = sess = tf.Session()
         self.sess = sess
-        #with sess:
-        pool3 = sess.graph.get_tensor_by_name('pool_3:0')
-        ops = pool3.graph.get_operations()
-        for op_idx, op in enumerate(ops):
-            for o in op.outputs:
-                shape = [s.value for s in o.get_shape()]
-                if len(shape) and shape[0] == 1:
-                    shape[0] = None
-                o._shape = tf.TensorShape(shape)
-        w = sess.graph.get_operation_by_name(
-            "softmax/logits/MatMul").inputs[1]
-        self.coder = tf.squeeze(tf.squeeze(pool3, 2), 1)
-        logits = tf.matmul(self.coder, w)
-        self.softmax = tf.nn.softmax(logits)
 
+        self.input = tf.placeholder(tf.float32, shape=(None, None, None, 3))
+        proced = tfgan_eval.preprocess_image(self.input)
+        self.coder, self.softmax = tfgan_eval.run_inception(
+            proced, output_tensor=['pool_3:0', 'logits:0'])
         assert self.coder.get_shape()[1].value == self.coder_dim
         assert self.softmax.get_shape()[1].value == self.softmax_dim
-
-        self.input = 'ExpandDims:0'
 
 
 class LeNet(object):

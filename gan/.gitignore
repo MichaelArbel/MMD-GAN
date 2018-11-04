@@ -13,3 +13,4 @@ stream_mmd.py
 test.py
 download.py
 model_me*
+*.tar.gz

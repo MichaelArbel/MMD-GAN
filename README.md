@@ -20,7 +20,7 @@ The GPU compatible version of tensorflow is required for this code to work.
 ```
 cd scripts
 OUTPUT_DATA_DIR=/path/to/output/directory/
-python scripts/download.py --datasets celebA --output_dir $OUTPUT_DATA_DIR
+python scripts/download.py celebA -- $OUTPUT_DATA_DIR
 ```
 
 ### Download ImageNet dataset:
@@ -61,5 +61,5 @@ CUDA_VISIBLE_DEVICES=0,1,2 python gan/main.py -dataset imagenet -data_dir $DATAD
 For any question, please feel free to contact Michael Arbel (`michael.n.arbel@gmail.com`)
 
 ### References
-Michael Arbel, Dougal J. Southerland, Mikolaj Binkowski, Arthur Gretton. *On gradient regularizers for MMD GANs*. [arXiv][smmd]
+Michael Arbel, Dougal J. Sutherland, Mikołaj Bińkowski, Arthur Gretton. *On gradient regularizers for MMD GANs*. [arXiv][smmd]
 

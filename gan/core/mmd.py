@@ -3,11 +3,9 @@ MMD functions implemented in tensorflow.
 '''
 from __future__ import division
 
-_eps = 1.0e-5
-
 import tensorflow as tf
 import numpy as np
-from .ops import dot, sq_sum
+from .ops import dot, sq_sum, _eps
 
 mysqrt = lambda x: tf.sqrt(tf.maximum(x + _eps, 0.))
 

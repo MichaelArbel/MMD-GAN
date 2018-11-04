@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import pprint
+
 import numpy as np
 from . import mmd
 from .ops import safer_norm, tf, squared_norm_jacobian
@@ -12,51 +13,43 @@ from utils import timer, scorer, misc
 
 
 class MMD_GAN(object):
-    def __init__(self, sess, config,
-                 batch_size=64, output_size=64,
-                 z_dim=100, c_dim=3, data_dir='./data'):
+    def __init__(self, sess, config):
         if config.learning_rate_D < 0:
             config.learning_rate_D = config.learning_rate
         """
         Args:
             sess: TensorFlow session
-            batch_size: The size of batch. Should be specified before training.
-            output_size: (optional) The resolution in pixels of the images. [64]
-            z_dim: (optional) Dimension of dim for Z. [100]
-            gf_dim: (optional) Dimension of gen filters in first conv layer. [64]
-            df_dim: (optional) Dimension of discrim filters in first conv layer. [64]
-            gfc_dim: (optional) Dimension of gen units for for fully connected layer. [1024]
-            dfc_dim: (optional) Dimension of discrim units for fully connected layer. [1024]
-            c_dim: (optional) Dimension of image color. For grayscale input, set to 1. [3]
+            config: The configuration; see main.py for entries
         """
 
         self.format = 'NCHW'
         self.timer = timer.Timer()
         self.dataset = config.dataset
         if config.architecture == 'dc128':
-            output_size = 128
-        if config.architecture in ['dc64', 'dcgan64']:
-            output_size = 64
+            config.output_size = 128
+        elif config.architecture in ['dc64', 'dcgan64']:
+            config.output_size = 64
+        output_size = config.output_size
 
         self.sess = sess
         if config.real_batch_size == -1:
             config.real_batch_size = config.batch_size
         self.config = config
-        self.is_grayscale = (c_dim == 1)
-        self.batch_size = batch_size
+        self.is_grayscale = (config.c_dim == 1)
+        self.batch_size = config.batch_size
         self.real_batch_size = config.real_batch_size
-        self.sample_size = 64 if self.config.is_train else batch_size
+        self.sample_size = 64 if self.config.is_train else config.batch_size
         #self.sample_size = batch_size
 
         self.output_size = output_size
-        self.data_dir = data_dir
+        self.data_dir = config.data_dir
         self.z_dim = self.config.z_dim
 
         self.gf_dim = config.gf_dim
         self.df_dim = config.df_dim
         self.dof_dim = self.config.dof_dim
 
-        self.c_dim = c_dim
+        self.c_dim = config.c_dim
         self.input_dim = self.output_size*self.output_size*self.c_dim
 
         discriminator_desc = '_dc'
@@ -69,10 +62,12 @@ class MMD_GAN(object):
         self.description = ("%s%s_%s%s_%sd%d-%d-%d_%s_%s_%s" % (
                             self.dataset, arch,
                             self.config.architecture, discriminator_desc,
-                            self.config.kernel, self.config.dsteps,
+                            self.config.model + '-' + self.config.kernel,
+                            self.config.dsteps,
                             self.config.start_dsteps, self.config.gsteps, self.batch_size,
                             self.output_size, lr))
-
+        if self.config.dof_dim > 1:
+            self.description += '_dof{}'.format(self.config.dof_dim)
         if self.config.batch_norm:
             self.description += '_bn'
 
@@ -184,7 +179,7 @@ class MMD_GAN(object):
         self.towers_d_grads = []
         self.update_ops = []
         with tf.variable_scope(tf.get_variable_scope()):
-            for i in xrange(self.config.num_gpus):
+            for i in range(self.config.num_gpus):
                 worker = '/gpu:%d' % i
                 device_setter = misc._create_device_setter(is_cpu_ps, worker, self.config.num_gpus, ps_device=self.consolidation_device)
                 with tf.device(device_setter):
@@ -203,10 +198,11 @@ class MMD_GAN(object):
                         #else:
                         #    self.set_tower_loss(scope, images,Generator,Discriminator,update_collection="NO_OPS")
                         #    update_ops.extend(tf.get_collection(tf.GraphKeys.UPDATE_OPS,scope))
-                        losses.append([self.g_loss, self.d_loss])
 
                         #update_ops.append(tf.get_collection(tf.GraphKeys.UPDATE_OPS,scope))
                         if self.config.is_train:
+                            losses.append([self.g_loss, self.d_loss])
+
                             if i == 0:
                                 t_vars = tf.trainable_variables()
                                 self.d_vars = [var for var in t_vars if 'd_' in var.name]
@@ -270,12 +266,28 @@ class MMD_GAN(object):
         dbn = self.config.batch_norm & (self.config.gradient_penalty <= 0)
         self.z = tf.random_uniform([self.batch_size, self.z_dim], minval=-1.,
                                    maxval=1., dtype=tf.float32, name='z')
+
+        gen_kw = {
+            'dim': self.gf_dim,
+            'c_dim': self.c_dim,
+            'output_size': self.output_size,
+            'use_batch_norm': self.config.batch_norm,
+            'format': self.format,
+            'is_train': self.config.is_train,
+        }
+        disc_kw = {
+            'dim': self.df_dim,
+            'o_dim': self.dof_dim,
+            'use_batch_norm': dbn,
+            'with_sn': self.config.with_sn,
+            'with_learnable_sn_scale': self.config.with_learnable_sn_scale,
+            'format': self.format,
+            'is_train': self.config.is_train,
+        }
         if self.with_labels:
-            generator = Generator(self.num_classes, self.gf_dim, self.c_dim, self.output_size, self.config.batch_norm, format=self.format)
-            self.discriminator = Discriminator(self.num_classes, self.df_dim, self.dof_dim, dbn, with_sn=self.config.with_sn, with_learnable_sn_scale=self.config.with_learnable_sn_scale, format=self.format)
-        else:
-            generator = Generator(self.gf_dim, self.c_dim, self.output_size, self.config.batch_norm, format=self.format)
-            self.discriminator = Discriminator(self.df_dim, self.dof_dim, dbn, with_sn=self.config.with_sn, with_learnable_sn_scale=self.config.with_learnable_sn_scale, format=self.format)
+            gen_kw['num_classes'] = disc_kw['num_classes'] = self.num_classes
+        self.generator = Generator(**gen_kw)
+        self.discriminator = Discriminator(**disc_kw)
 
         # tf.summary.histogram("z", self.z)
         if self.with_labels:
@@ -388,7 +400,8 @@ class MMD_GAN(object):
         unscaled_g_loss = self.g_loss
         with tf.variable_scope('loss'):
             if self.config.with_scaling:
-                print('[*] Adding scaling variant: %s', self.config.scaling_variant)
+
+                print('[*] Adding scaling variant: %s' % self.config.scaling_variant)
                 self.apply_scaling(scale)
                 tf.summary.scalar(self.optim_name + '_non_scaled_G', unscaled_g_loss)
                 tf.summary.scalar(self.optim_name + '_norm_grad_G', norm2_jac)

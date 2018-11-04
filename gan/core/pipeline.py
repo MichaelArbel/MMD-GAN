@@ -371,7 +371,7 @@ class Mnist(Pipeline):
         elif self.format == 'NHWC':
             teX = loaded[16:].reshape((10000, 28, 28, 1)).astype(np.float)
 
-        fd = open(os.path.join(self.data_dir, ' t10k-labels-idx1-ubyte'))
+        fd = open(os.path.join(self.data_dir, 't10k-labels-idx1-ubyte'))
         loaded = np.fromfile(file=fd, dtype=np.uint8)
         teY = loaded[8:].reshape((10000)).astype(np.float)
 
@@ -391,22 +391,17 @@ class Mnist(Pipeline):
 class Cifar10(Pipeline):
     def __init__(self, *args, **kwargs):
         super(Cifar10, self).__init__(*args, **kwargs)
-        categories = np.arange(10)
+        self.categories = np.arange(10)
+
         batchesX, batchesY = [], []
         for batch in range(1, 6):
-            loaded = misc.unpickle(os.path.join(self.data_dir, 'data_batch_%d' % batch))
-            idx = np.in1d(np.array(loaded['labels']), categories)
-            batchesX.append(loaded['data'][idx].reshape(idx.sum(), 3, 32, 32))
-            batchesY.append(np.array(loaded['labels'])[idx])
+            pth = os.path.join(self.data_dir, 'data_batch_{}'.format(batch))
+            labels, pixels = self.load_batch(pth)
+            batchesX.append(pixels)
+            batchesY.append(labels)
         trX = np.concatenate(batchesX, axis=0)
-        if self.format == 'NHWC':
-            trX = trX.transpose(0, 2, 3, 1)
 
-        test = misc.unpickle(os.path.join(self.data_dir, 'test_batch'))
-        idx = np.in1d(np.array(test['labels']), categories)
-        teX = test['data'][idx].reshape(idx.sum(), 3, 32, 32)
-        if self.format == 'NHWC':
-            teX = teX.transpose(0, 2, 3, 1)
+        _, teX = self.load_batch(os.path.join(self.data_dir, 'test_batch'))
 
         X = np.concatenate((trX, teX), axis=0).astype(np.float32) / 255.
 
@@ -416,6 +411,25 @@ class Cifar10(Pipeline):
 
         queue = tf.train.input_producer(tf.constant(X), shuffle=False)
         self.single_sample = queue.dequeue_many(self.read_batch)
+
+    def load_batch(self, pth):
+        if os.path.exists(pth):
+            loaded = misc.unpickle(pth)
+            labels = np.asarray(loaded['labels'])
+            pixels = np.asarray(loaded['pixels'])
+        elif os.path.exists(pth + '.bin'):
+            loaded = np.fromfile(pth + '.bin', dtype=np.uint8).reshape(-1, 3073)
+            labels = loaded[:, 0]
+            pixels = loaded[:, 1:]
+        else:
+            raise ValueError("couldn't find {}".format(pth))
+
+        idx = np.in1d(labels, self.categories)
+        labels = labels[idx]
+        pixels = pixels[idx].reshape(-1, 3, 32, 32)
+        if self.format == 'NHWC':
+            pixels = pixels.transpose(0, 2, 3, 1)
+        return labels, pixels
 
 
 class GaussianMix(Pipeline):

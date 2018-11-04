@@ -17,7 +17,7 @@ import operator
 pp = pprint.PrettyPrinter()
 
 import matplotlib as mpl
-mpl.use('Agg')
+#mpl.use('Agg')
 import matplotlib.pyplot as plt
 
 

@@ -3,7 +3,8 @@ Some codes from https://github.com/Newmu/dcgan_code
 
 Released under the MIT license.
 """
-from __future__ import division
+from __future__ import division, print_function
+import os
 import random
 import pprint
 import scipy.misc
@@ -278,3 +279,60 @@ def PIL_read_jpeg(files, base_size=160, target_size=64, batch_size=128,
     )
     
     return images
+
+
+def load_model(n, sess=None, load=True, log=False, **config_override):
+    import argparse
+    import ast
+
+    # XXX stupid path stuff going on here
+    from core import model_class
+    from main import make_flags
+
+    # load config from the log file
+    with open(os.path.join('sample', n, 'log.txt')) as f:
+        f.readline()
+        l = f.readline()
+        assert l.startswith('{')
+        dct = [l]
+        while True:
+            l = f.readline()
+            dct.append(l)
+            if l.strip().endswith('}'):
+                break
+    config = argparse.Namespace(**ast.literal_eval(''.join(dct)))
+
+    # get defaults for any new params not set in the log
+    defaults = make_flags([])
+    for k, v in vars(defaults).iteritems():
+        if not hasattr(config, k):
+            setattr(config, k, v)
+
+    config.log = log  # want this False to not override the log file :)
+    for k, v in config_override.items():
+        setattr(config, k, v)
+
+    if sess is None:
+        sess_config = tf.ConfigProto(
+            device_count={"CPU": 3},
+            inter_op_parallelism_threads=0,
+            intra_op_parallelism_threads=0,
+            allow_soft_placement=True)
+        sess_config.gpu_options.allow_growth = True
+        sess = tf.Session(config=sess_config)
+
+    Model = model_class(config.model)
+    gan = Model(sess, config=config)
+
+    # override directories, if gan.description has changed in code
+    for f in ['sample', 'checkpoint', 'log']:
+        setattr(gan, f + '_dir', os.path.join(f, n))
+        assert os.path.exists(f)
+
+    if load:
+        gan.sess.run(tf.local_variables_initializer())
+        gan.sess.run(tf.global_variables_initializer())
+        gan.load_checkpoint()
+        gan.initialized_for_sampling = True
+        print("Loaded at step", gan.sess.run(gan.global_step - 1))
+    return gan

@@ -18,7 +18,6 @@ kernel : ''
 model : "gan"
 batch_norm : False
 with_sn : True
-with_learnable_sn_scale : True
+with_learnable_sn_scale : False
 with_scaling : False
-use_gaussian_noise : False
 

@@ -416,7 +416,11 @@ class Cifar10(Pipeline):
         if os.path.exists(pth):
             loaded = misc.unpickle(pth)
             labels = np.asarray(loaded['labels'])
-            pixels = np.asarray(loaded['pixels'])
+            
+            try: 
+                pixels = np.asarray(loaded['pixels'])
+            except:
+                pixels = np.asarray(loaded['data'])
         elif os.path.exists(pth + '.bin'):
             loaded = np.fromfile(pth + '.bin', dtype=np.uint8).reshape(-1, 3073)
             labels = loaded[:, 0]

@@ -129,6 +129,9 @@ add_arg('-num_gpus',                    default=None,           type=int,       
 # conditional gan, only for imagenet
 add_arg('-with_labels',                 default=False,          type=str2bool,  help='Conditional GAN [%(default)s]')
 
+add_arg('-rf',                          default=False,          type=str2bool,  help='Conditional GAN [%(default)s]')
+add_arg('-num_rf',                      default=100,            type=int,  help='Conditional GAN [%(default)s]')
+
 
 def main(_):
     global FLAGS

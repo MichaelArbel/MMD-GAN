@@ -289,6 +289,7 @@ class MMD_GAN(object):
         self.generator = Generator(**gen_kw)
         self.discriminator = Discriminator(**disc_kw)
 
+
         # tf.summary.histogram("z", self.z)
         if self.with_labels:
             dist_y = tf.distributions.Categorical(probs=np.ones([self.num_classes])/self.num_classes)
@@ -318,6 +319,17 @@ class MMD_GAN(object):
                                                  return_layers=True, update_collection="NO_OPS")
         self.d_images = self.d_images_layers['hF']
         self.d_G = self.d_G_layers['hF']
+
+        if self.config.rf:
+            self.config.kernel = 'dot'
+            DimFeatures = self.d_images.get_shape()[1]
+            self.sample_u = tf.constant(np.random.multivariate_normal(np.zeros([DimFeatures]), np.eye(DimFeatures), self.config.num_rf).astype(np.float32),
+                                        dtype=tf.float32, name='sample_u')
+            self.d_G = tf.concat([tf.sin( self.d_G@self.sample_u), tf.cos(self.d_G@self.sample_u)], 1)/np.sqrt(self.config.num_rf)
+            self.d_images = tf.concat([tf.sin(self.d_images@self.sample_u), tf.cos(self.d_images@self.sample_u)], 1)/np.sqrt(self.config.num_rf)
+
+
+
 
         if self.config.is_train:
             self.set_loss(self.d_G, self.d_images)

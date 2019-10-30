@@ -293,11 +293,11 @@ class MMD_GAN(object):
         if self.with_labels:
             dist_y = tf.distributions.Categorical(probs=np.ones([self.num_classes])/self.num_classes)
             self.y = dist_y.sample(sample_shape=[self.batch_size], name='y')
-            self.G = generator(self.z, self.y, self.batch_size, update_collection=update_collection)
-            self.sampler = generator(self.sample_z, self.sample_y, self.sample_size, update_collection="NO_OPS")
+            self.G = self.generator(self.z, self.y, self.batch_size, update_collection=update_collection)
+            self.sampler = self.generator(self.sample_z, self.sample_y, self.sample_size, update_collection="NO_OPS")
         else:
-            self.G = generator(self.z, self.batch_size, update_collection=update_collection)
-            self.sampler = generator(self.sample_z, self.sample_size, update_collection="NO_OPS")
+            self.G = self.generator(self.z, self.batch_size, update_collection=update_collection)
+            self.sampler = self.generator(self.sample_z, self.sample_size, update_collection="NO_OPS")
 
         if self.format == 'NCHW':
             self.G_NHWC = tf.transpose(self.G, [0, 2, 3, 1])
@@ -465,15 +465,21 @@ class MMD_GAN(object):
 
     def apply_grads(self):
         with tf.variable_scope("G_grads"):
-            self.g_grads = self.g_optim.apply_gradients(
-                self.g_gvs,
-                global_step=self.global_step
-            )
+            if len(self.g_gvs):
+                self.g_grads = self.g_optim.apply_gradients(
+                    self.g_gvs,
+                    global_step=self.global_step
+                )
+            else:
+                self.d_grads = tf.no_op()
         with tf.variable_scope("D_grads"):
-            self.d_grads = self.d_optim.apply_gradients(
-                self.d_gvs,
-                global_step=self.global_d_step
-            )
+            if len(self.d_gvs):
+                self.d_grads = self.d_optim.apply_gradients(
+                    self.d_gvs,
+                    global_step=self.global_d_step
+                )
+            else:
+                self.d_grads = tf.no_op()
 
     def set_counters(self, step):
 

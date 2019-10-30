@@ -1,6 +1,6 @@
-/checkpoint_*
-/logs_*
-/samples_*
+/checkpoint*
+/log*
+/sample*
 /official_samples
 /*.pyc
 /*.ipynb

@@ -95,13 +95,13 @@ class DataFlow(Pipeline):
 
     def __init__(self, *args, **kwargs):
         super(DataFlow, self).__init__(*args, **kwargs)
-        self.regex = 'tf_records_train/train-*'
+        self.pattern = 'tf_records_train/train*'
 
         cpu_device = '/cpu:0'
 
         # Preprocessing
         with tf.device(cpu_device):
-            file_pattern = os.path.join(self.data_dir, self.regex)
+            file_pattern = os.path.join(self.data_dir, self.pattern)
             record_input = RecordInput(
                 file_pattern=file_pattern,
                 seed=Record_seed,

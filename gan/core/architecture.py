@@ -463,8 +463,6 @@ def get_networks(architecture):
     elif architecture == 'cond_snresnet':
         return CondSNResNetGenerator, CondProjectionSNResNetDiscriminator
     elif 'g-resnet5' in architecture:
-        print('get_networks')
-        print(ResNetGenerator, DCGAN5Discriminator)
         return ResNetGenerator, DCGAN5Discriminator
     elif architecture == 'resnet5':
         return ResNetGenerator, ResNetDiscriminator
